@@ -1,1 +1,9 @@
+archive.zip
+archive.zip
+Data/raw/
 data/raw/
+*.zip
+.DS_Store
+.venv/
+__pycache__/
+.ipynb_checkpoints/
