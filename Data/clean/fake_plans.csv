@@ -1,0 +1,4 @@
+plan_name,insurer,plan_type,metal_level,premium,network_name,directory_url
+Plan A,Insurer X,HMO,Bronze,200,Network 1,https://network1.com
+Plan B,Insurer Y,PPO,Silver,300,Network 2,https://network2.com
+Plan C,Insurer Z,EPO,Gold,400,Network 3,https://network3.com 
