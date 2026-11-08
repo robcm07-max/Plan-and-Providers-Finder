@@ -6,13 +6,18 @@ from urllib.request import urlopen
 
 import pandas as pd
 import streamlit as st
+import care_ui as ui
 
 
-st.set_page_config(page_title="Plan Places Finder", layout="wide")
+st.set_page_config(
+    page_title="Plan Places Finder",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
 
 # Page styling: smooth scrolling, rounded boxes, sidebar link buttons.
 # Keep the theme switch outside the page functions so it stays visible.
-dark_mode = st.sidebar.toggle("Dark mode", key="dark_mode")
+dark_mode = st.session_state.get("dark_mode", False)
 
 if dark_mode:
     colors = {
@@ -814,11 +819,7 @@ def plan_page():
                     "costs when you use care.",
     }
 
-    st.header("Your plan", anchor="your-plan")
-    st.write(
-        "Choose a 2026 Massachusetts marketplace plan to see its details "
-        "and a link to the insurer's official provider directory."
-    )
+    ui.heading('Explore plans', 'Plans and benefits', f'Browse {len(plans)} individual medical plans from the 2026 Massachusetts data and learn what to confirm before enrolling.')
 
     if "selected_plan_index" not in st.session_state:
         st.session_state["selected_plan_index"] = plans.index[0]
@@ -841,32 +842,10 @@ def plan_page():
 
     plan = plans.loc[selected_index]
 
-    with st.container(border=True):
-        st.markdown(f"**{plan['plan_name']}**")
-        st.write(f"Insurer: {plan['insurer']}")
-
-        col1, col2 = st.columns(2)
-        col1.metric("Plan type", str(plan["plan_type"]))
-        col2.metric("Metal level", str(plan["metal_level"]))
-
-        metal_note = METAL_NOTES.get(str(plan["metal_level"]))
-        if metal_note:
-            st.caption(f"General guide: {metal_note}")
-
-        network_name = plan.get("network_name")
-        if pd.notna(network_name):
-            st.write(f"**Network:** {network_name}")
-        else:
-            st.write("**Network:** not listed")
-
-        directory_url = plan.get("directory_url")
-        if pd.notna(directory_url) and str(directory_url).startswith(
-            ("https://", "http://")
-        ):
-            st.link_button(
-                "Check coverage in the insurer’s directory",
-                str(directory_url),
-            )
+    ui.plan_card(plan)
+    directory_url = plan.get("directory_url")
+    if pd.notna(directory_url) and str(directory_url).startswith(("https://", "http://")):
+        st.link_button("Open insurer directory ↗", str(directory_url))
 
     st.caption(
         "Choosing a plan shows its details and directory link. "
@@ -1179,9 +1158,12 @@ def care_page():
         emergency_only = st.checkbox("Emergency services only")
 
     with st.form("care_search_form"):
-        search_address = st.text_input(
-            "Your street address",
-            placeholder="123 Main Street, Boston, MA 02101",
+        street = st.text_input("Street address", placeholder="123 Main Street")
+        city_col, state_col, zip_col = st.columns([2, 1.4, 1])
+        city = city_col.text_input("City or town", placeholder="Boston")
+        region = state_col.selectbox("State", ["Massachusetts (MA)"])
+        zip_code = zip_col.text_input(
+            "ZIP code", max_chars=5, placeholder="02118"
         )
 
         radius = st.slider(
@@ -1223,8 +1205,18 @@ def care_page():
         wants_doctors = "Doctors and specialists" in care_choices
         wants_urgent = "Urgent care" in care_choices
 
-        if not search_address.strip():
-            st.warning("Enter a complete street address.")
+        zip_clean = zip_code.strip()
+
+        if (
+            not street.strip()
+            or not city.strip()
+            or len(zip_clean) != 5
+            or not zip_clean.isascii()
+            or not zip_clean.isdigit()
+        ):
+            st.warning(
+                "Enter a street, city or town, and a five-digit ZIP code."
+            )
         elif not care_choices:
             st.warning("Choose at least one type of care.")
         elif wants_doctors and not specialty.strip():
@@ -1232,7 +1224,9 @@ def care_page():
         else:
             try:
                 with st.spinner("Finding your address..."):
-                    matches = geocode_address(search_address.strip())
+                    matches = geocode_address(
+                        f"{street.strip()}, {city.strip()}, MA {zip_clean}"
+                    )
 
                 if not matches:
                     st.warning(
@@ -1243,6 +1237,14 @@ def care_page():
                     st.warning(
                         "More than one address matched. "
                         "Add a ZIP code or make the address more specific."
+                    )
+                elif (
+                    matches[0].get("addressComponents", {}).get("state", "MA")
+                    != "MA"
+                ):
+                    st.warning(
+                        "The matched address is outside Massachusetts. "
+                        "Check the address."
                     )
                 else:
                     match = matches[0]
@@ -1765,8 +1767,7 @@ def guided_zip_map(providers, search_key):
         if selected and str(selected[0].get('ZIP')) in options:
             st.session_state[filter_key] = str(selected[0]['ZIP'])
 
-    st.subheader('Explore matches by ZIP code')
-    st.caption('Select a dot to show the retrieved providers in that ZIP code. Dots are placed at the average location of matched providers—not ZIP boundaries or exact clinic locations. Counts include only results from this search.')
+    st.caption('Select a ZIP dot to filter the provider cards. Dots summarize retrieved locations; they are not ZIP boundaries.')
     st.selectbox('Show providers in ZIP code', options, key=filter_key, help='Keyboard-accessible alternative to clicking the map. Choose All ZIP codes to clear the filter.')
     if {'latitude', 'longitude'}.issubset(providers.columns):
         mapped = providers[providers['ZIP'].isin(options[1:])].dropna(subset=['latitude', 'longitude'])
@@ -1782,14 +1783,12 @@ def guided_zip_map(providers, search_key):
             zoom = 11 if span < .1 else 9 if span < .5 else 7
             deck = pdk.Deck(layers=[layer], initial_view_state=pdk.ViewState(latitude=float(groups.latitude.mean()), longitude=float(groups.longitude.mean()), zoom=zoom), map_style=None,
                 tooltip={'text': 'ZIP {ZIP}\n{count} retrieved provider(s)\nSelect to filter the list'})
-            st.pydeck_chart(deck, key=map_key, on_select=use_map_selection, selection_mode='single-object', height=350)
+            st.pydeck_chart(deck, key=map_key, on_select=use_map_selection, selection_mode='single-object', height=460)
         else:
             st.info('These results do not have valid ZIP locations to map. Use the provider list below.')
     active = st.session_state[filter_key]
     visible = providers if active == 'All ZIP codes' else providers[providers['ZIP'] == active]
     st.write(f"**{len(visible)} provider(s)** · {active}")
-    if active != 'All ZIP codes':
-        st.dataframe(visible[['Name', 'Address', 'City', 'ZIP', 'Phone']], hide_index=True)
     return visible.reset_index(drop=True)
 
 
@@ -1809,10 +1808,8 @@ def care_guide_page():
     state = st.session_state.setdefault("care_wizard", {"step": 0})
     labels = ["Care need", "Your plan", "Location", "Choose a provider", "Your next steps"]
     step = state['step']
-    st.title("Your care guide")
-    st.caption(f"Step {step + 1} of 5 · {labels[step]}")
-    st.progress((step + 1) / 5)
-    st.caption("For an emergency, call 911. This guide does not diagnose symptoms or verify insurance acceptance.")
+    if step:
+        ui.progress(step, labels[step])
 
     def go(number):
         state['step'] = number
@@ -1823,35 +1820,42 @@ def care_guide_page():
             go(number)
 
     if step == 0:
-        st.header("What kind of care are you looking for?")
-        st.write("Choose a care area. We will show only related provider specialties.")
-        area = st.selectbox("Care area", list(paths), index=list(paths).index(state.get('area', 'Primary care / general health')), key="w_area")
+        ui.heading('Your care guide', 'What kind of care are you looking for?', 'Choose a care area. We’ll help you understand your benefits, find nearby providers, and prepare the right questions to ask.')
+        ui.notice('For an emergency, call 911. This guide does not diagnose symptoms or verify insurance acceptance.')
+        area = ui.care_cards(paths, state)
         choices = paths[area][0]
         previous = state.get('specialty', choices[0])
-        specialty = st.selectbox("Provider specialty", choices, index=choices.index(previous) if previous in choices else 0, key=f"w_specialty_{area}")
+        if len(choices) == 1:
+            specialty = choices[0]
+        else:
+            specialty = st.selectbox("Provider specialty", choices, index=choices.index(previous) if previous in choices else 0, key=f"w_specialty_{area}")
         if specialty == "Enter a specialty":
             specialty = st.text_input("Exact provider specialty", value=state.get('custom_specialty', ''), placeholder="For example: Rheumatology").strip()
             st.caption("Custom searches use your specialty as the care need. We do not infer it from symptoms or automatically assign benefit categories.")
-        st.caption("These options organize a directory search; they are not a medical recommendation.")
-        if st.button("Continue to your plan →", type="primary"):
-            if not specialty:
-                st.warning("Enter a specialty before continuing.")
-            else:
-                if (area, specialty) != (state.get('area'), state.get('specialty')):
-                    for key in ['search', 'provider', 'topics']:
-                        state.pop(key, None)
-                state.update(area=area, specialty=specialty, custom_specialty=specialty if area == 'Another specialty' else '')
-                go(1)
+        ui.selection(area, specialty)
+        _, forward = st.columns([2, 1])
+        with forward.container(key="wizard-next"):
+            if st.button("Continue to your plan →", type="primary", use_container_width=True):
+                if not specialty:
+                    st.warning("Enter a specialty before continuing.")
+                else:
+                    if (area, specialty) != (state.get('area'), state.get('specialty')):
+                        for key in ['search', 'provider', 'topics']:
+                            state.pop(key, None)
+                    state.update(area=area, specialty=specialty, custom_specialty=specialty if area == 'Another specialty' else '')
+                    go(1)
         return
 
     benefits = load_benefits()
     if step == 1:
-        st.header("What does your plan say about this care?")
-        st.caption(f"Your search: {state['specialty']} · {state['area']}")
+        ui.heading('Plan & benefits', 'What does your plan say about this care?', 'Select your plan if you know it. You can still continue and find care if your plan isn’t listed.')
+        st.caption(f"Looking for {state['specialty']}")
         ids = ["Not listed / I do not know"] + plans['plan_id'].tolist()
         saved_id = state.get('plan_id', ids[0])
         plan_id = st.selectbox("Your 2026 Massachusetts marketplace plan", ids, index=ids.index(saved_id) if saved_id in ids else 0, format_func=lambda v: v if v == ids[0] else f"{plans.loc[plans.plan_id == v].iloc[0]['insurer']} — {plans.loc[plans.plan_id == v].iloc[0]['plan_name']}")
         st.caption("Employer, student and other plans may not be listed. Choose ‘Not listed’ rather than a similar plan; you can still find care.")
+        if plan_id in plans.plan_id.values:
+            ui.plan_card(plans[plans.plan_id == plan_id].iloc[0])
         available = benefits[benefits.plan_id == plan_id]
         variants = ["I'm not sure"] + sorted(available.variant_id.unique())
         prior = state.get('variant', variants[0]) if plan_id == state.get('plan_id') else variants[0]
@@ -1895,27 +1899,34 @@ def care_guide_page():
                     st.write(note)
                     findings.append(note)
         st.link_button("View the official benefits data source", "https://www.cms.gov/marketplace/resources/data/state-based-public-use-files")
-        back(0)
-        if st.button("Continue to location →", type="primary"):
-            state.update(plan_id=plan_id, variant=variant, topics=topics, findings=findings)
-            if plan_id in plans.plan_id.values:
-                st.session_state['selected_plan_index'] = plans[plans.plan_id == plan_id].index[0]
-            else:
-                st.session_state.pop('selected_plan_index', None)
-            go(2)
+        previous_col, forward = st.columns([2, 1])
+        with previous_col:
+            back(0)
+        with forward.container(key="wizard-next"):
+            if st.button("Continue to location →", type="primary", use_container_width=True):
+                state.update(plan_id=plan_id, variant=variant, topics=topics, findings=findings)
+                if plan_id in plans.plan_id.values:
+                    st.session_state['selected_plan_index'] = plans[plans.plan_id == plan_id].index[0]
+                else:
+                    st.session_state.pop('selected_plan_index', None)
+                go(2)
         return
 
     if step == 2:
-        st.header("Where would you like to find care?")
-        st.write(f"Looking for **{state['specialty']}** in Massachusetts.")
+        ui.heading('Your location', 'Where would you like to find care?', f"We’ll use your location to find {state['specialty']} providers nearby. You can use a nearby address instead of your home.")
         with st.form('wizard_location'):
             street = st.text_input("Street address", value=state.get('street', ''), placeholder="123 Main Street")
-            city = st.text_input("City or town", value=state.get('city', ''), placeholder="Boston")
-            region = st.selectbox("State", ["Massachusetts (MA)"])
-            zip_code = st.text_input("ZIP code", value=state.get('zip', ''), max_chars=5, placeholder="02118")
+            city_col, state_col, zip_col = st.columns([2, 1.4, 1])
+            city = city_col.text_input("City or town", value=state.get('city', ''), placeholder="Boston")
+            region = state_col.selectbox("State", ["Massachusetts (MA)"])
+            zip_code = zip_col.text_input("ZIP code", value=state.get('zip', ''), max_chars=5, placeholder="02118")
             radius = st.slider("Maximum distance in miles", 1, 100, state.get('radius', 10))
             scope = st.radio("Provider search area", ['This city or town', 'All Massachusetts'], index=state.get('scope', 0), help="City searches exclude nearby towns. Statewide searches still return only up to 15 registry listings, not all providers.")
-            submitted = st.form_submit_button("Search for providers →", type="primary")
+            st.caption("Your address is sent to the Census Geocoder. Distances are approximate straight-line distances, not driving distances.")
+            _, submit_col = st.columns([2, 1])
+            with submit_col:
+                with st.container(key="wizard-next"):
+                    submitted = st.form_submit_button("Search for providers →", type="primary", use_container_width=True)
         st.caption("Your address is sent to the Census Geocoder. You may use a nearby street address. Distances are approximate straight-line distances, not driving distances.")
         back(1)
         if submitted:
@@ -1955,32 +1966,43 @@ def care_guide_page():
     result = search['result']
     nearby = result['nearby'].reset_index(drop=True)
     if step == 3:
-        st.header("Choose a provider to check")
-        st.write(f"**{state['specialty']}** near {search['address']}")
-        st.caption(f"{result['searched_count']} registry listings checked; {len(nearby)} located within {search['radius']} miles. These are not necessarily the closest providers overall. Coverage is not verified.")
+        ui.heading('Provider results', 'Choose a provider to check', f"We found {len(nearby)} {state['specialty']} listings within {search['radius']} miles of your search address.")
+        ui.notice(f"{result['searched_count']} registry listings checked. These are not necessarily the closest providers overall. Coverage and appointment availability are not verified.")
         if not result['unavailable'].empty:
             with st.expander('Providers whose distance could not be determined'):
                 st.dataframe(result['unavailable'], hide_index=True)
-        back(2)
         if nearby.empty:
             st.info("No located matches within this radius. Go back to change the distance or search area. This does not mean no providers exist nearby.")
+            back(2)
             return
-        nearby = guided_zip_map(nearby, f"{search['address']}|{search['radius']}|{state['specialty']}")
+        cards_col, map_col = st.columns([1, 1], gap='large')
+        with map_col:
+            nearby = guided_zip_map(nearby, f"{search['address']}|{search['radius']}|{state['specialty']}")
         if nearby.empty:
             st.info("No providers in the selected ZIP. Choose All ZIP codes to reset.")
+            back(2)
             return
-        position = st.selectbox("Provider and practice address", list(range(len(nearby))), format_func=lambda i: f"{nearby.iloc[i]['Name']} — {nearby.iloc[i]['Address']} ({nearby.iloc[i]['distance_miles']} miles)")
-        provider = nearby.iloc[position]
-        with st.container(border=True):
-            st.subheader(str(provider['Name']))
-            st.write(f"{provider['Address']}, {provider['City']}, {provider['State']} {provider['ZIP']}")
-            st.write(f"Phone: {provider['Phone'] or 'Not listed'}")
-            st.caption("Primary practice address from the NPI Registry. Additional locations and appointment availability may differ.")
+        identities = [f"{row['NPI']}|{row['Address']}|{row['ZIP']}" for _, row in nearby.iterrows()]
+        selected_identity = state.get('provider_identity')
+        if selected_identity not in identities:
+            selected_identity = identities[0]
+            state['provider_identity'] = selected_identity
+        with cards_col:
+            for i, (_, row) in enumerate(nearby.iterrows()):
+                label = f"{row['distance_miles']:.1f} MILES\n**{row['Name']}**\n{state['specialty']}\n{row['Address']}, {row['City']}, {row['State']} {row['ZIP']}"
+                if st.button(label, key=f'provider_card_{i}', type='primary' if identities[i] == selected_identity else 'secondary', use_container_width=True):
+                    state['provider_identity'] = identities[i]
+                    st.rerun()
+        provider = nearby.iloc[identities.index(selected_identity)]
         with st.expander("Compare all retrieved matches"):
             st.dataframe(nearby[['Name', 'Address', 'City', 'Phone', 'distance_miles']].rename(columns={'distance_miles': 'Approx. miles'}), hide_index=True)
-        if st.button("Build my next steps →", type='primary'):
-            state['provider'] = provider.to_dict()
-            go(4)
+        previous_col, forward = st.columns([2, 1])
+        with previous_col:
+            back(2)
+        with forward.container(key="wizard-next"):
+            if st.button("Build my next steps →", type='primary', use_container_width=True):
+                state['provider'] = provider.to_dict()
+                go(4)
         return
 
     provider = state.get('provider')
@@ -1988,14 +2010,9 @@ def care_guide_page():
         go(3)
     known = state['plan_id'] in plans.plan_id.values
     plan = plans[plans.plan_id == state['plan_id']].iloc[0] if known else {'plan_name': 'Not identified', 'insurer': 'Not identified', 'network_name': 'Not identified', 'directory_url': ''}
-    st.header("Your next steps")
-    st.write(f"**Your care search:** {state['specialty']}")
-    with st.container(border=True):
-        st.subheader(provider['Name'])
-        st.write(f"{provider['Address']}, {provider['City']}, {provider['State']} {provider['ZIP']}")
-        st.write(f"**Phone:** {provider['Phone'] or 'Not listed'} · **NPI:** {provider['NPI']}")
-        st.write(f"**Plan:** {plan['plan_name']} · **Network:** {plan['network_name']}")
-        st.caption(f"Variant: {state['variant']}")
+    ui.heading('Your care plan', 'Your next steps', 'Use this checklist to confirm your coverage before you make an appointment.')
+    st.markdown(f'<div class="chosen-provider"><div class="eyebrow">Your selected provider</div><h2>{ui.safe(provider["Name"])}</h2><p>{ui.safe(provider["Address"])}, {ui.safe(provider["City"])}, {ui.safe(provider["State"])} {ui.safe(provider["ZIP"])}</p><p>{ui.safe(provider["Phone"] or "Phone not listed")} · NPI {ui.safe(provider["NPI"])}</p></div>', unsafe_allow_html=True)
+    st.caption(f"Plan: {plan['plan_name']} · Network: {plan['network_name']} · Variant: {state['variant']}")
     findings = state.get('findings', ['Benefits unconfirmed.'])
     with st.expander("What the benefit records say"):
         for finding in findings:
@@ -2005,27 +2022,42 @@ def care_guide_page():
         script = f"I have {plan['plan_name']} from {plan['insurer']}, network {plan['network_name']}, variant {state['variant']}. Is {provider['Name']} (NPI {provider['NPI']}) in network at {provider['Address']}, {provider['City']}? I am seeking {state['specialty']} care. What costs, referrals or prior authorization apply to my specific service?"
     else:
         script = f"Please help identify my exact plan and network. Is {provider['Name']} (NPI {provider['NPI']}) in network at {provider['Address']}, {provider['City']} for the service I need? What costs or approvals apply?"
-    st.markdown("**1. Ask your insurer**")
-    st.write(script)
     office = "Are you accepting new patients for this service at this location? Please confirm participation in my exact plan and network."
-    st.markdown("**2. Ask the provider’s office**")
-    st.write(office)
     url = plan.get('directory_url', '')
-    if pd.notna(url) and str(url).startswith(('https://','http://')):
-        st.link_button("Open my insurer’s directory", str(url))
+    with st.container(border=True):
+        ui.action_heading(1, 'Ask your insurer')
+        st.write(script)
+        if pd.notna(url) and str(url).startswith(('https://','http://')):
+            st.link_button("Open insurer directory ↗", str(url))
+    with st.container(border=True):
+        ui.action_heading(2, 'Call the provider’s office')
+        st.write(office)
+        st.write(f"**{provider['Phone'] or 'Phone not listed in the registry'}**")
+    with st.container(border=True):
+        ui.action_heading(3, 'Confirm costs and approvals')
+        st.write('Ask about your copay, deductible, referrals, and prior authorization before your visit.')
     text = '\n'.join([f"Care: {state['specialty']}", f"Plan: {plan['plan_name']}", f"Variant: {state['variant']}", f"Provider: {provider['Name']}", f"Address: {provider['Address']}, {provider['City']}, {provider['State']} {provider['ZIP']}", f"Phone: {provider['Phone'] or 'Not listed'}", f"NPI: {provider['NPI']}", '', 'BENEFITS DATA', *findings, '', 'ASK YOUR INSURER', script, '', 'ASK THE OFFICE', office, '', f"Directory: {url}", 'Sources: CMS 2026 MA SBE benefits; CMS NPI Registry; Census Geocoder.', 'https://www.cms.gov/marketplace/resources/data/state-based-public-use-files', 'https://npiregistry.cms.hhs.gov/', 'Coverage, cost and availability remain unverified.'])
-    st.download_button("Download my next steps", text, 'my-care-next-steps.txt', 'text/plain')
-    back(3)
+    previous_col, forward = st.columns([2, 1])
+    with previous_col:
+        back(3)
+    forward.download_button("Download my next steps", text, 'my-care-next-steps.txt', 'text/plain', use_container_width=True, type='primary')
     if st.button("Change care need or plan"):
         go(0)
 
 
-journey_nav = st.Page(care_guide_page, title="Find care: start here", default=True)
-home_nav = st.Page(home_page, title="About this app", url_path="about")
+def designed_home():
+    ui.welcome_page(journey_nav)
+
+
+journey_nav = st.Page(care_guide_page, title="Find care: start here")
+home_nav = st.Page(designed_home, title="About this app", url_path="about", default=True)
 needs_nav = st.Page(needs_page, title="Other care needs", url_path="needs")
-plan_nav = st.Page(plan_page, title="Browse plans and benefits", url_path="plan")
+plan_nav = st.Page(plan_page, title="Plans and benefits", url_path="plan")
 care_nav = st.Page(care_page, title="Browse nearby care", url_path="care")
 faq_nav = st.Page(faq_page, title="Questions and terms", url_path="faq")
-sources_nav = st.Page(sources_page, title="Sources and limits", url_path="sources")
-navigation = st.navigation({"Guided care": [journey_nav], "Explore": [needs_nav, plan_nav, care_nav], "Help": [home_nav, faq_nav, sources_nav]})
+sources_nav = st.Page(ui.sources_page, title="Sources and limits", url_path="sources")
+ui.theme(dark_mode)
+nav_groups = {"Start here": [home_nav], "Guided care": [journey_nav], "Explore": [needs_nav, plan_nav, care_nav], "Help": [faq_nav, sources_nav]}
+navigation = st.navigation(nav_groups, position='hidden')
+ui.sidebar(nav_groups)
 navigation.run()
