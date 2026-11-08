@@ -1,3 +1,4 @@
-streamlit
+streamlit>=1.48
 pandas
 pgeocode
+pydeck>=0.9

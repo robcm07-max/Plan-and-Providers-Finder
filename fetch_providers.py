@@ -24,7 +24,7 @@ if st.button("Search providers"):
             "taxonomy_description": specialty,
             "address_purpose": "LOCATION",
             "enumeration_type": "NPI-1",
-            "limit": 15,
+            "limit": 20,
         }
 
         url = (
