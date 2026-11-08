@@ -10,18 +10,79 @@ import streamlit as st
 
 st.set_page_config(page_title="Plan Places Finder", layout="wide")
 
-# Smooth scrolling when a table-of-contents link is clicked.
+# Page styling: smooth scrolling, rounded boxes, sidebar link buttons.
 st.markdown(
     """
     <style>
     html, body, [data-testid="stMain"], section.main {
         scroll-behavior: smooth;
     }
+
+    /* Sidebar links become rounded boxes */
+    [data-testid="stSidebar"] ul {
+        list-style: none;
+        padding-left: -300px;
+        margin: -5px;
+    }
+    [data-testid="stSidebar"] li {
+        margin-bottom: 0.5rem;
+    }
+    [data-testid="stSidebar"] li a {
+        display: block;
+        padding: 0.5rem 0.7rem;
+        background: #FBF6EE;
+        border: 1px solid #C9D3B8;
+        border-radius: 8px;
+        color: #2F2A26;
+        text-decoration: none;
+        font-weight: 600;
+    }
+    [data-testid="stSidebar"] li a:hover {
+        background: #B5532D;
+        border-color: #B5532D;
+        color: #FFFFFF;
+    }
+
+    /* Rounded cards, forms, expanders, and buttons */
+    [data-testid="stVerticalBlockBorderWrapper"] {
+        border-radius: 16px;
+        background: #FFFDF9;
+        border-color: #E3D8C8;
+    }
+    [data-testid="stForm"] {
+        border-radius: 16px;
+    }
+    [data-testid="stExpander"] {
+        border-radius: 12px;
+    }
+    .stButton > button,
+    [data-testid="stFormSubmitButton"] > button,
+    [data-testid="stLinkButton"] a {
+        border-radius: 999px;
+    }
+
+    /* Top banner */
+    .hero {
+        background: #F3E7D6;
+        border-radius: 20px;
+        padding: 2rem 2rem 1.5rem 2rem;
+        margin-bottom: 1rem;
+    }
+    .hero h1 {
+        color: #B5532D;
+        margin: 0 0 0.5rem 0;
+        padding: 0;
+        font-size: 2.4rem;
+    }
+    .hero p {
+        font-size: 1.1rem;
+        margin: 0;
+        color: #2F2A26;
+    }
     </style>
     """,
     unsafe_allow_html=True,
 )
-
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "Data"
 if not DATA.exists():
@@ -351,11 +412,27 @@ st.sidebar.markdown(
 # ---------------------------------------------------------------------
 
 st.title("Plan Places Finder")
-st.write(
-    "Health insurance can be confusing. Tell us what matters to you, "
-    "look at a plan, and see care near you in Massachusetts."
+st.markdown(
+    """
+    <div class="hero">
+    <h1>Plan Places Finder</h1>
+    <p>Health insurance is confusing. Tell us what matters to you, look at a plan, and see real hospitals and doctors near you in Massachusetts.</p>
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
+step_columns = st.columns(3)
+steps = [
+    ("1. Tell us what matters", "Pick the kinds of care you need."),
+    ("2. Look at a plan", "See its details and the insurer's directory."),
+    ("3. Find care near you", "Search hospitals, doctors, and urgent care."),
+]
+
+for column, (step_title, step_text) in zip(step_columns, steps):
+    with column.container(border=True):
+        st.markdown(f"**{step_title}**")
+        st.caption(step_text)
 st.info(
     "Hospital and provider results are not matched to your insurance "
     "network. Confirm coverage with your insurer before getting care."
@@ -458,11 +535,15 @@ selected_needs = st.multiselect(
     options=list(NEEDS.keys()),
 )
 
-for need in selected_needs:
-    st.markdown(f"**{need}**")
-    st.write(NEEDS[need]["look_for"])
-    st.caption(f"Ask the insurer: {NEEDS[need]['ask']}")
+if selected_needs:
+    need_columns = st.columns(2)
 
+    for position, need in enumerate(selected_needs):
+        with need_columns[position % 2].container(border=True):
+            st.markdown(f"**{need}**")
+            st.write(NEEDS[need]["look_for"])
+            st.caption(f"Ask the insurer: {NEEDS[need]['ask']}")
+            
 specialty_needs = [
     need for need in selected_needs if need in NEED_SPECIALTIES
 ]
