@@ -6,148 +6,18 @@ from urllib.request import urlopen
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 import care_ui as ui
 
 
 st.set_page_config(
-    page_title="Plan Places Finder",
+    page_title="Plan and Providers Finder",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
 
-# Page styling: smooth scrolling, rounded boxes, sidebar link buttons.
-# Keep the theme switch outside the page functions so it stays visible.
 dark_mode = st.session_state.get("dark_mode", False)
 
-if dark_mode:
-    colors = {
-        "background": "#1F1E1D",   # near-black, warm neutral
-        "sidebar": "#262624",
-        "surface": "#30302E",
-        "text": "#F5F4EE",
-        "muted": "#B8B5AA",
-        "border": "#4A4945",
-        "accent": "#D97757",       # Claude-style orange
-        "button_text": "#1F1E1D",
-        "banner": "#2B2A28",
-    }
-else:
-    colors = {
-        "background": "#FAF7F2",
-        "sidebar": "#F1EADF",
-        "surface": "#FFFDF9",
-        "text": "#2F2A26",
-        "muted": "#615C54",
-        "border": "#B8C2AE",
-        "accent": "#A64D35",
-        "button_text": "#FFFFFF",
-        "banner": "#F3E7D6",
-    }
-
-st.markdown(
-    f"""
-    <style>
-    .stApp {{
-        background-color: {colors["background"]};
-        color: {colors["text"]};
-        color-scheme: {"dark" if dark_mode else "light"};
-    }}
-
-    [data-testid="stSidebar"],
-    [data-testid="stHeader"] {{
-        background-color: {colors["sidebar"]};
-    }}
-
-    [data-testid="stMain"] h1,
-    [data-testid="stMain"] h2,
-    [data-testid="stMain"] h3,
-    [data-testid="stMain"] h4,
-    [data-testid="stMain"] h5,
-    [data-testid="stMarkdownContainer"],
-    [data-testid="stWidgetLabel"],
-    [data-testid="stMetricLabel"],
-    [data-testid="stMetricValue"],
-    [data-testid="stSidebarNav"] a {{
-        color: {colors["text"]};
-    }}
-
-    [data-testid="stCaptionContainer"] {{
-        color: {colors["muted"]};
-    }}
-
-    [data-testid="stForm"],
-    [data-testid="stExpander"],
-    [data-testid="stVerticalBlockBorderWrapper"] {{
-        background-color: {colors["surface"]};
-        border-color: {colors["border"]};
-        border-radius: 14px;
-    }}
-
-    [data-testid="stTextInput"] input,
-    [data-testid="stTextArea"] textarea,
-    [data-baseweb="select"] > div {{
-        background-color: {colors["surface"]};
-        color: {colors["text"]};
-        border-color: {colors["border"]};
-    }}
-
-    [data-baseweb="popover"],
-    [data-baseweb="menu"],
-    [role="listbox"],
-    [role="option"] {{
-        background-color: {colors["surface"]};
-        color: {colors["text"]};
-    }}
-
-    [data-testid="stButton"] button,
-    [data-testid="stFormSubmitButton"] button,
-    [data-testid="stLinkButton"] a {{
-        background-color: {colors["accent"]};
-        color: {colors["button_text"]};
-        border: 1px solid {colors["accent"]};
-        border-radius: 999px;
-    }}
-
-    [data-testid="stButton"] button p,
-    [data-testid="stFormSubmitButton"] button p,
-    [data-testid="stLinkButton"] a p {{
-        color: {colors["button_text"]};
-    }}
-
-    [data-testid="stButton"] button:hover,
-    [data-testid="stFormSubmitButton"] button:hover,
-    [data-testid="stLinkButton"] a:hover {{
-        filter: brightness(1.1);
-    }}
-
-    [data-testid="stMain"] a:not(
-        [data-testid="stLinkButton"] a
-    ) {{
-        color: {colors["accent"]};
-    }}
-
-    .hero {{
-        background-color: {colors["banner"]};
-        border-radius: 20px;
-        padding: 2rem;
-        margin-bottom: 1rem;
-    }}
-
-    .hero h1 {{
-        color: {colors["accent"]};
-        margin: 0 0 0.5rem;
-        font-size: 2.4rem;
-    }}
-
-    .hero p {{
-        color: {colors["text"]};
-        margin: 0;
-        font-size: 1.1rem;
-    }}
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
 # ---------------------------------------------------------------------
 # Data and helper functions
 # ---------------------------------------------------------------------
@@ -504,7 +374,7 @@ def show_provider_results(result, radius):
                         )
                 else:
                     st.info(
-                        "Choose a plan on the Your plan page, then "
+                        "Choose a plan on the Plans and benefits page, then "
                         "return here to see your personalized call script."
                     )
 
@@ -557,48 +427,6 @@ def show_provider_results(result, radius):
 
 
 hospitals, plans = load_data()
-
-
-
-def home_page():
-    # ---------------------------------------------------------------------
-    # Top of page
-    # ---------------------------------------------------------------------
-
-    st.title("Plan Places Finder")
-    st.markdown(
-        """
-        <div class="hero">
-        <h1>Plan Places Finder</h1>
-        <p>Health insurance is confusing. Tell us what matters to you, look at a plan, and see real hospitals and doctors near you in Massachusetts.</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    step_columns = st.columns(3)
-    steps = [
-        ("1. Tell us what matters", "Pick the kinds of care you need."),
-        ("2. Look at a plan", "See its details and the insurer's directory."),
-        ("3. Find care near you", "Search hospitals, doctors, and urgent care."),
-    ]
-
-    for column, (step_title, step_text) in zip(step_columns, steps):
-        with column.container(border=True):
-            st.markdown(f"**{step_title}**")
-            st.caption(step_text)
-    st.info(
-        "Hospital and provider results are not matched to your insurance "
-        "network. Confirm coverage with your insurer before getting care."
-    )
-
-
-
-    st.subheader("Where would you like to start?")
-    st.page_link(journey_nav, label="Start the guided care search")
-    st.page_link(needs_nav, label="Explore your care needs")
-    st.page_link(plan_nav, label="Choose an insurance plan")
-    st.page_link(care_nav, label="Find nearby care")
 
 
 def needs_page():
@@ -687,10 +515,12 @@ def needs_page():
         "Child care": ["Pediatrics"],
     }
 
-    st.header("What matters most to you in a health plan?", anchor="what-matters")
-    st.write(
-        "Pick everything that applies. We will show what to look for and "
-        "what to ask, based on your choices."
+    st.markdown('<span id="what-matters"></span>', unsafe_allow_html=True)
+    ui.heading(
+        "Explore",
+        "Care needs and priorities",
+        "Pick everything that applies. We’ll show what to look for and "
+        "what to ask, based on your choices.",
     )
 
     if "needs_picker" not in st.session_state:
@@ -805,19 +635,6 @@ def plan_page():
     # ---------------------------------------------------------------------
     # Section 2: your plan (picker and details together)
     # ---------------------------------------------------------------------
-
-    METAL_NOTES = {
-        "Bronze": "Usually the lowest monthly premium, with higher costs "
-                  "when you use care.",
-        "Expanded Bronze": "A bronze-tier plan: usually a lower monthly "
-                           "premium, with higher costs when you use care.",
-        "Silver": "A middle option for monthly premium and cost when you "
-                  "use care.",
-        "Gold": "Usually a higher monthly premium, with lower costs when "
-                "you use care.",
-        "Platinum": "Usually the highest monthly premium, with the lowest "
-                    "costs when you use care.",
-    }
 
     ui.heading('Explore plans', 'Plans and benefits', f'Browse {len(plans)} individual medical plans from the 2026 Massachusetts data and learn what to confirm before enrolling.')
 
@@ -1124,7 +941,13 @@ def care_page():
     # Section 3: find care near you (hospitals, doctors, urgent care)
     # ---------------------------------------------------------------------
 
-    st.header("Find care near you", anchor="find-care")
+    st.markdown('<span id="find-care"></span>', unsafe_allow_html=True)
+    ui.heading(
+        "Find care",
+        "Find care near you",
+        "Search hospitals, doctors, and urgent care near an address, or "
+        "browse Massachusetts hospitals without an address.",
+    )
     show_selected_benefit()
     st.info("Results are not matched to your insurance network. Confirm coverage with your insurer.")
     selected_plan_index = st.session_state.get("selected_plan_index")
@@ -1136,12 +959,6 @@ def care_page():
             st.link_button("Check your plan’s provider directory", str(chosen_url))
     else:
         st.page_link(plan_nav, label="Choose your insurance plan")
-    st.write(
-        "Enter an address to see hospitals, doctors, and urgent care "
-        "nearby. Without an address, the Hospitals tab lists hospitals "
-        "across Massachusetts."
-    )
-
     st.caption(
         "Your search address is sent to the U.S. Census Geocoder to "
         "calculate approximate straight-line distances (not driving "
@@ -1508,7 +1325,7 @@ def faq_page():
         (
             "Plan types and metal levels",
             "Are the plans in this app all the plans I can buy?",
-            "No. This app lists 48 individual medical plans from 2026 "
+            f"No. This app lists {len(plans)} individual medical plans from 2026 "
             "Massachusetts public data. It is not every option available "
             "in Massachusetts, and it does not show prices.",
         ),
@@ -1695,10 +1512,12 @@ def faq_page():
         ),
     ]
 
-    st.header("Questions and terms (FAQ)", anchor="faq")
-    st.caption(
+    st.markdown('<span id="faq"></span>', unsafe_allow_html=True)
+    ui.heading(
+        "Help",
+        "Questions and terms",
         "Tap a question to open it. This is general information, not "
-        "advice about your specific plan."
+        "advice about your specific plan.",
     )
 
     faq_query = st.text_input(
@@ -1727,26 +1546,6 @@ def faq_page():
 
     st.divider()
 
-
-def sources_page():
-    # ---------------------------------------------------------------------
-    # Sources and limits
-    # ---------------------------------------------------------------------
-
-    st.header("Sources and limits", anchor="sources")
-    st.caption(
-        "Hospital source: CMS Hospital General Information. Hospital map "
-        "pins use ZIP-code centers, so they are approximate. "
-        "Plan source: CMS 2026 Massachusetts State-Based Exchange Public "
-        "Use Files. Insurer directory links are manually maintained. "
-        "Provider source: CMS NPI Registry. Address matching: U.S. Census "
-        "Geocoder."
-    )
-    st.caption(
-        "This site does not know which providers accept which plans. "
-        "Always confirm network status, costs, and coverage with your "
-        "insurer and the provider before getting care."
-    )
 
 def guided_zip_map(providers, search_key):
     """Filter only retrieved providers; markers summarize each ZIP group."""
@@ -1927,7 +1726,6 @@ def care_guide_page():
             with submit_col:
                 with st.container(key="wizard-next"):
                     submitted = st.form_submit_button("Search for providers →", type="primary", use_container_width=True)
-        st.caption("Your address is sent to the Census Geocoder. You may use a nearby street address. Distances are approximate straight-line distances, not driving distances.")
         back(1)
         if submitted:
             state.update(street=street.strip(), city=city.strip(), zip=zip_code.strip(), radius=radius, scope=0 if scope == 'This city or town' else 1)
@@ -2036,11 +1834,17 @@ def care_guide_page():
     with st.container(border=True):
         ui.action_heading(3, 'Confirm costs and approvals')
         st.write('Ask about your copay, deductible, referrals, and prior authorization before your visit.')
-    text = '\n'.join([f"Care: {state['specialty']}", f"Plan: {plan['plan_name']}", f"Variant: {state['variant']}", f"Provider: {provider['Name']}", f"Address: {provider['Address']}, {provider['City']}, {provider['State']} {provider['ZIP']}", f"Phone: {provider['Phone'] or 'Not listed'}", f"NPI: {provider['NPI']}", '', 'BENEFITS DATA', *findings, '', 'ASK YOUR INSURER', script, '', 'ASK THE OFFICE', office, '', f"Directory: {url}", 'Sources: CMS 2026 MA SBE benefits; CMS NPI Registry; Census Geocoder.', 'https://www.cms.gov/marketplace/resources/data/state-based-public-use-files', 'https://npiregistry.cms.hhs.gov/', 'Coverage, cost and availability remain unverified.'])
     previous_col, forward = st.columns([2, 1])
     with previous_col:
         back(3)
-    forward.download_button("Download my next steps", text, 'my-care-next-steps.txt', 'text/plain', use_container_width=True, type='primary')
+    with forward.container(key="print-control"):
+        components.html(
+            """<button type="button" onclick="window.parent.print()"
+            style="width:100%;min-height:66px;padding:12px 18px;border:1px solid #23634f;
+            border-radius:10px;background:#23634f;color:#fff;font:650 16px sans-serif;
+            cursor:pointer;">Print my next steps</button>""",
+            height=66,
+        )
     if st.button("Change care need or plan"):
         go(0)
 
@@ -2051,9 +1855,9 @@ def designed_home():
 
 journey_nav = st.Page(care_guide_page, title="Find care: start here")
 home_nav = st.Page(designed_home, title="About this app", url_path="about", default=True)
-needs_nav = st.Page(needs_page, title="Other care needs", url_path="needs")
+needs_nav = st.Page(needs_page, title="Care needs and priorities", url_path="needs")
 plan_nav = st.Page(plan_page, title="Plans and benefits", url_path="plan")
-care_nav = st.Page(care_page, title="Browse nearby care", url_path="care")
+care_nav = st.Page(care_page, title="Find care near you", url_path="care")
 faq_nav = st.Page(faq_page, title="Questions and terms", url_path="faq")
 sources_nav = st.Page(ui.sources_page, title="Sources and limits", url_path="sources")
 ui.theme(dark_mode)

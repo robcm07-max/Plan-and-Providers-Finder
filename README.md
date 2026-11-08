@@ -1,1 +1,1 @@
-# plan-places-finder
+# Plan and Providers Finder

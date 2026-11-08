@@ -68,15 +68,26 @@ def theme(dark=False):
     [data-testid="stDownloadButton"] button, [data-testid="stLinkButton"] a { min-height:46px; border-radius:10px; padding:10px 18px; font-weight:650; background:var(--surface); color:var(--green); border:1px solid var(--line); }
     [data-testid="stButton"] button p, [data-testid="stFormSubmitButton"] button p,
     [data-testid="stDownloadButton"] button p, [data-testid="stLinkButton"] a p { color:inherit; }
-    button[kind="primary"], [data-testid="stFormSubmitButton"] button[kind="primary"] { background:var(--green); color:#fff; border-color:var(--green); }
+    button[kind="primary"], button[kind="primaryFormSubmit"],
+    [data-testid="stFormSubmitButton"] button[kind="primary"],
+    [data-testid="stFormSubmitButton"] button[kind="primaryFormSubmit"] { background:var(--green); color:#fff; border-color:var(--green); }
     .st-key-wizard-next button, .st-key-wizard-next button *,
     .st-key-wizard-next [data-testid="stBaseButton-primary"],
     .st-key-wizard-next [data-testid="stBaseButton-primary"] * { color:#fff!important; -webkit-text-fill-color:#fff!important; }
+    .st-key-print-control iframe { display:block; width:100%; }
+    @media print {
+      .st-key-print-control { display:none!important; }
+      [data-testid="stMainBlockContainer"] { max-width:none; padding:0!important; }
+      .chosen-provider, [data-testid="stVerticalBlockBorderWrapper"] { break-inside:avoid; }
+    }
     button:hover { border-color:var(--green)!important; }
     button:focus-visible, a:focus-visible, input:focus-visible, [role="combobox"]:focus-visible { outline:3px solid var(--orange)!important; outline-offset:3px; }
-    [class*="st-key-care_card_"] button { width:100%; min-height:118px; height:100%; align-items:flex-start; justify-content:flex-start; padding:19px 16px; text-align:left; border-radius:14px; }
-    [class*="st-key-care_card_"] button p { white-space:pre-line; line-height:1.5; font-size:12px; }
-    [class*="st-key-care_card_"] button strong { display:block; font-size:14px; margin-bottom:5px; }
+    [class*="st-key-care_card_"] button { width:100%; min-height:118px; height:100%; padding:19px 16px; text-align:center; border-radius:14px; }
+    [class*="st-key-care_card_"] button > div { display:flex; width:100%; flex-direction:column; align-items:center; justify-content:center; gap:0; }
+    [class*="st-key-care_card_"] button > div > span { width:100%; flex-direction:column; align-items:center; }
+    [class*="st-key-care_card_"] button [data-testid="stIconMaterial"] { display:block; flex:0 0 24px; width:24px; height:24px; margin:0 auto 9px; font-size:22px; line-height:24px; }
+    [class*="st-key-care_card_"] button p { white-space:pre-line; line-height:1.5; font-size:12px; margin:0; text-align:center; }
+    [class*="st-key-care_card_"] button strong { display:block; font-size:14px; line-height:1.3; margin-bottom:5px; }
     [class*="st-key-care_card_"] button[kind="primary"] { background:var(--selected); color:var(--ink); border:1.5px solid var(--green); }
     [class*="st-key-provider_card_"] button { width:100%; min-height:135px; text-align:left; justify-content:flex-start; padding:20px; border-radius:14px; }
     [class*="st-key-provider_card_"] button p { white-space:pre-line; line-height:1.6; font-size:12px; }
@@ -147,7 +158,7 @@ def action_heading(number, title):
 
 def sidebar(groups):
     with st.sidebar:
-        st.markdown('<div class="brand"><div class="brand-mark" aria-hidden="true">♡</div><div><div class="brand-title">Plan Places</div><div class="brand-sub">Finder</div></div></div>', unsafe_allow_html=True)
+        st.markdown('<div class="brand"><div class="brand-mark" aria-hidden="true">♡</div><div><div class="brand-title">Plan and Providers</div><div class="brand-sub">Finder</div></div></div>', unsafe_allow_html=True)
         icons = [':material/auto_awesome:', ':material/favorite_border:', ':material/description:', ':material/map:', ':material/chat_bubble_outline:', ':material/help_outline:', ':material/verified_user:']
         i = 0
         for title, pages in groups.items():
@@ -194,7 +205,7 @@ def care_cards(paths, state):
 
 
 def welcome_page(journey_nav):
-    st.markdown('<div class="welcome"><div class="welcome-mark" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M24 40 8.7 25.2C.1 16.8 12.2 4.1 24 15.1 35.8 4.1 47.9 16.8 39.3 25.2L24 40Z" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="eyebrow">Welcome to Plan Places</div><h1 class="page-title">Health insurance is confusing. Finding care shouldn’t be.</h1><p class="page-intro">Tell us what matters to you, look at a plan, and see hospitals and doctors near you in Massachusetts.</p></div>', unsafe_allow_html=True)
+    st.markdown('<div class="welcome"><div class="welcome-mark" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M24 40 8.7 25.2C.1 16.8 12.2 4.1 24 15.1 35.8 4.1 47.9 16.8 39.3 25.2L24 40Z" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="eyebrow">Welcome to Plan and Providers Finder</div><h1 class="page-title">Health insurance is confusing. Finding care shouldn’t be.</h1><p class="page-intro">Tell us what matters to you, look at a plan, and see hospitals and doctors near you in Massachusetts.</p></div>', unsafe_allow_html=True)
     with st.container(key="welcome-cta"):
         st.page_link(journey_nav, label='Start the guided care search  →')
     for col, number, title, description in zip(st.columns(3), ['01','02','03'], ['Tell us what matters','Look at your plan','Find nearby care'], ['Choose the kind of care you need.','Understand benefits and network details.','Search providers and prepare next steps.']):
@@ -204,7 +215,7 @@ def welcome_page(journey_nav):
 
 
 def sources_page():
-    heading('Transparency', 'Sources and limits', 'Where the information in Plan Places comes from—and what it cannot tell you.')
+    heading('Transparency', 'Sources and limits', 'Where the information in Plan and Providers Finder comes from—and what it cannot tell you.')
     entries = [
         ('Hospital information','CMS Hospital General Information','Hospital locations use approximate ZIP-code centers.','https://data.cms.gov/provider-data/dataset/xubh-q36u'),
         ('Plans and benefits','CMS 2026 MA State-Based Exchange data','Benefit records describe coverage and conditions, but do not establish your exact cost or approval.','https://www.cms.gov/marketplace/resources/data/state-based-public-use-files'),
